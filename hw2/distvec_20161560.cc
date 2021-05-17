@@ -24,6 +24,7 @@ int main(int argc, char *argv[])
 
     char temp[100];
 
+    //실행 시 입력 조건에 맞게 입력하였는지 확인.
     if(argc != 4){
         printf("usage: distvec topolygyfile messagefile changesfile\n");
         exit(1);
@@ -41,31 +42,42 @@ int main(int argc, char *argv[])
             fclose(chg_fp);
         exit(1);
     }
-    out_fp = fopen("output_dv.txt","w");
+    //End: 입력 조건, 입력 파일의 정상적인 실행여부 확인.
+
+    out_fp = fopen("output_dv.txt","w");//출력파일 생성.
 
     int x,y,z;
+
+    //message file을 입력 받아서 from-to의 숫자 정보를 int vector에, message를 string vector에 저장.
     while(fscanf(msg_fp,"%d %d %[^\n]%*c",&x,&y,temp) != EOF){
         vector<int> t = {x,y};
         v.push_back(t);
         string str(temp);
         msg_s.push_back(str);
     }
+    //End: message file 내용 입력.
 
+    //changes file를 입력 받아서 update정보를 int vector에 저장.
     while(fscanf(chg_fp,"%d %d %d",&x,&y,&z) != EOF){
         vector<int> t = {x,y,z};
         ch.push_back(t);
-    }
+    }//End: changes file의 내용 입력.
 
-    fscanf(top_fp,"%d",&node_num);
+    fscanf(top_fp,"%d",&node_num);//node의 갯수 입력.
+
     int i, j, k,cost;
+
+    //배열 초기화.
     for(i = 0;i<node_num;i++){
         for(j = 0;j<node_num;j++){
             for(k = 0;k<3;k++){
-                rout_table[i][j][k] = 0;
-                top_table[i][j][k] = 0;
+                rout_table[i][j][k] = 0;//rout_table: distvec의 과정과 결과를 담기 위한 배열
+                top_table[i][j][k] = 0;//top_table: neighbor간의 정보 교환이 되더라도 neighbor간의 link상태와 cost 등을 바로 파악하기 위한 배열.
             }
         }
-    }
+    }//End: 배열 초기화.
+
+    //topology file 내용 입력.
     while(fscanf(top_fp,"%d %d %d",&i,&j,&cost) != EOF){
         rout_table[i][j][2] = 1;
         rout_table[i][j][1] = cost;
@@ -82,9 +94,12 @@ int main(int argc, char *argv[])
         top_table[j][i][2] = 1;
         top_table[j][i][1] = cost;
         top_table[j][i][0] = i;
-    }
+    }//End: topology 내용 입력
+
+    //distvector 방식을 이용해 neighbor간의 정보 교환 및 rout_table 생성 과정.
     for(x = 0;x <= (int)ch.size();x++){
-        for(int l = 0;l<3;l++){
+        //한번의 교환으로 모든 정보가 제대로 교환 될 수 없기 때문에 node 갯수의 절반만큼 교환 과정을 반복.
+        for(int l = 0;l<node_num/2;l++){
             for(i = 0;i<node_num;i++){
                 for(j = 0;j<node_num;j++){
                     if(i == j) {
@@ -116,29 +131,40 @@ int main(int argc, char *argv[])
                                     rout_table[j][k][1] = cost + c;
                                     rout_table[j][k][0] = i;
                                 }
+                                else if(c == cost + d){
+                                    if(rout_table[i][k][0] > j)
+                                        rout_table[i][k][0] = j;
+                                }
+                                else if(c + cost == d){
+                                    if(i < rout_table[j][k][0]){
+                                        rout_table[j][k][0] = i;
+                                    }
+                                }
                             }
                         }
                     }
                 }
             }
-        }
+        }//End: neighbor간의 정보 교환
 
-        print_rout_table();
-        if(x == (int)ch.size()) break;
+        print_rout_table();// 출력파일에 rout_table 및 message 출력.
 
-        rout_init(ch[x][0],ch[x][1],ch[x][2]);
-    }   
+        if(x == (int)ch.size()) break;//모든 update가 진행 되면 반복문 종료.
 
+        rout_init(ch[x][0],ch[x][1],ch[x][2]);//update정보에 따라서 배열을 초기화.
+    }//End: 모든 update에 따른 결과를 출력파일에 출력.   
+    
     fclose(top_fp);
     fclose(msg_fp);
     fclose(chg_fp);
     fclose(out_fp);
+
+    printf("Complete. Output file written to output_dv.txt.\n");
     return 0;
 }
 
 void rout_init(int start, int end, int cost)
 {
-    printf("%d %d %d\n",start, end, cost);
     if(cost == -999)
     {
         top_table[start][end][2] = 0;
